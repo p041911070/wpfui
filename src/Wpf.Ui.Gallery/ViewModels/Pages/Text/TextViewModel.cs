@@ -3,7 +3,6 @@
 // Copyright (C) Leszek Pomianowski and WPF UI Contributors.
 // All Rights Reserved.
 
-using System.Collections.ObjectModel;
 using Wpf.Ui.Gallery.ControlsLookup;
 using Wpf.Ui.Gallery.Models;
 using Wpf.Ui.Gallery.Views.Pages.Text;
@@ -16,15 +15,12 @@ public partial class TextViewModel : ObservableObject
     private ICollection<NavigationCard> _navigationCards = new ObservableCollection<NavigationCard>(
         ControlPages
             .FromNamespace(typeof(TextPage).Namespace!)
-            .Select(
-                x =>
-                    new NavigationCard()
-                    {
-                        Name = x.Name,
-                        Icon = x.Icon,
-                        Description = x.Description,
-                        PageType = x.PageType
-                    }
-            )
+            .Select(x => new NavigationCard()
+            {
+                Name = x.Name,
+                Icon = x.Icon,
+                Description = x.Description,
+                PageType = x.PageType
+            })
     );
 }

@@ -3,9 +3,8 @@
 // Copyright (C) Leszek Pomianowski and WPF UI Contributors.
 // All Rights Reserved.
 
-using Microsoft.Web.WebView2.Wpf;
-using System.Windows;
 using System.Windows.Threading;
+using Microsoft.Web.WebView2.Wpf;
 using Wpf.Ui.Gallery.Controllers;
 using Wpf.Ui.Gallery.Models.Monaco;
 
@@ -21,10 +20,7 @@ public partial class MonacoWindowViewModel : ObservableObject
         webView.UseLayoutRounding = true;
         webView.DefaultBackgroundColor = System.Drawing.Color.Transparent;
         webView.Source = new Uri(
-            System.IO.Path.Combine(
-                System.AppDomain.CurrentDomain.BaseDirectory,
-                @"Assets\Monaco\index.html"
-            )
+            System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, @"Assets\Monaco\index.html")
         );
 
         _monacoController = new MonacoController(webView);
@@ -36,7 +32,9 @@ public partial class MonacoWindowViewModel : ObservableObject
     private async Task InitializeEditorAsync()
     {
         if (_monacoController == null)
+        {
             return;
+        }
 
         await _monacoController.CreateAsync();
         await _monacoController.SetThemeAsync(Appearance.ApplicationThemeManager.GetAppTheme());

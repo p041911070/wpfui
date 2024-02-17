@@ -4,19 +4,60 @@
 // All Rights Reserved.
 
 using Microsoft.Win32;
-using System;
-using System.Windows;
-using System.Windows.Media;
 
 namespace Wpf.Ui.Appearance;
 
-internal static class SystemThemeManager
+/// <summary>
+/// Provides information about Windows system themes.
+/// </summary>
+/// <example>
+/// <code lang="csharp">
+/// var currentWindowTheme = SystemThemeManager.GetCachedSystemTheme();
+/// </code>
+/// <code lang="csharp">
+/// SystemThemeManager.UpdateSystemThemeCache();
+/// var currentWindowTheme = SystemThemeManager.GetCachedSystemTheme();
+/// </code>
+/// </example>
+public static class SystemThemeManager
 {
+    private static SystemTheme _cachedTheme = SystemTheme.Unknown;
+
+    /// <summary>
+    /// Gets the Windows glass color.
+    /// </summary>
     public static Color GlassColor => SystemParameters.WindowGlassColor;
 
+    /// <summary>
+    /// Gets a value indicating whether the system is currently using the high contrast theme.
+    /// </summary>
     public static bool HighContrast => SystemParameters.HighContrast;
 
-    public static SystemTheme GetCurrentSystemTheme()
+    /// <summary>
+    /// Returns the Windows theme retrieved from the registry. If it has not been cached before, invokes the <see cref="UpdateSystemThemeCache"/> and then returns the currently obtained theme.
+    /// </summary>
+    /// <returns>Currently cached Windows theme.</returns>
+    public static SystemTheme GetCachedSystemTheme()
+    {
+        if (_cachedTheme != SystemTheme.Unknown)
+        {
+            return _cachedTheme;
+        }
+
+        UpdateSystemThemeCache();
+
+        return _cachedTheme;
+    }
+
+    /// <summary>
+    /// Refreshes the currently saved system theme.
+    /// </summary>
+    public static void UpdateSystemThemeCache()
+    {
+        _cachedTheme = GetCurrentSystemTheme();
+    }
+
+    private static SystemTheme GetCurrentSystemTheme()
     {
         var currentTheme =
             Registry.GetValue(
@@ -46,6 +87,26 @@ internal static class SystemThemeManager
                 return SystemTheme.Dark;
             }
 
+            if (currentTheme.Contains("hcblack.theme"))
+            {
+                return SystemTheme.HCBlack;
+            }
+
+            if (currentTheme.Contains("hcwhite.theme"))
+            {
+                return SystemTheme.HCWhite;
+            }
+
+            if (currentTheme.Contains("hc1.theme"))
+            {
+                return SystemTheme.HC1;
+            }
+
+            if (currentTheme.Contains("hc2.theme"))
+            {
+                return SystemTheme.HC2;
+            }
+
             if (currentTheme.Contains("themea.theme"))
             {
                 return SystemTheme.Glow;
@@ -69,16 +130,19 @@ internal static class SystemThemeManager
 
         //if (currentTheme.Contains("custom.theme"))
         //    return ; custom can be light or dark
-        var rawAppsUseLightTheme =
-            Registry.GetValue(
-                "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-                "AppsUseLightTheme",
-                1
-            ) ?? 1;
+        var rawAppsUseLightTheme = Registry.GetValue(
+            "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+            "AppsUseLightTheme",
+            1
+        );
 
-        if (rawAppsUseLightTheme is int and 0)
+        if (rawAppsUseLightTheme is 0)
         {
             return SystemTheme.Dark;
+        }
+        else if (rawAppsUseLightTheme is 1)
+        {
+            return SystemTheme.Light;
         }
 
         var rawSystemUsesLightTheme =

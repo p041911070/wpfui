@@ -1,11 +1,9 @@
-﻿// This Source Code Form is subject to the terms of the MIT License.
+// This Source Code Form is subject to the terms of the MIT License.
 // If a copy of the MIT was not distributed with this file, You can obtain one at https://opensource.org/licenses/MIT.
 // Copyright (C) Leszek Pomianowski and WPF UI Contributors.
 // All Rights Reserved.
 
-using System;
 using System.Collections.ObjectModel;
-using System.Windows;
 
 namespace Wpf.Ui.Appearance;
 
@@ -15,7 +13,7 @@ namespace Wpf.Ui.Appearance;
 internal class ResourceDictionaryManager
 {
     /// <summary>
-    /// Namespace, e.g. the library the resource is being searched for.
+    /// Gets the namespace, e.g. the library the resource is being searched for.
     /// </summary>
     public string SearchNamespace { get; }
 
@@ -99,7 +97,7 @@ internal class ResourceDictionaryManager
     /// <returns><see langword="true"/> if the dictionary <see cref="Uri"/> was updated. <see langword="false"/> otherwise.</returns>
     public bool UpdateDictionary(string resourceLookup, Uri? newResourceUri)
     {
-        Collection<ResourceDictionary> applicationDictionaries = Application
+        Collection<ResourceDictionary> applicationDictionaries = UiApplication
             .Current
             .Resources
             .MergedDictionaries;
@@ -134,8 +132,9 @@ internal class ResourceDictionaryManager
                     continue;
                 }
 
-                sourceUri = applicationDictionaries[i].MergedDictionaries[j].Source
-                    .ToString()
+                sourceUri = applicationDictionaries[i]
+                    .MergedDictionaries[j]
+                    .Source.ToString()
                     .ToLower()
                     .Trim();
 
@@ -144,10 +143,7 @@ internal class ResourceDictionaryManager
                     continue;
                 }
 
-                applicationDictionaries[i].MergedDictionaries[j] = new()
-                {
-                    Source = newResourceUri
-                };
+                applicationDictionaries[i].MergedDictionaries[j] = new() { Source = newResourceUri };
 
                 return true;
             }
@@ -158,6 +154,6 @@ internal class ResourceDictionaryManager
 
     private Collection<ResourceDictionary> GetApplicationMergedDictionaries()
     {
-        return Application.Current.Resources.MergedDictionaries;
+        return UiApplication.Current.Resources.MergedDictionaries;
     }
 }

@@ -3,20 +3,43 @@
 // Copyright (C) Leszek Pomianowski and WPF UI Contributors.
 // All Rights Reserved.
 
-using System;
-using System.Collections.Generic;
-using System.Windows;
-
+using System.Runtime.CompilerServices;
 using Wpf.Ui.Controls;
-using Wpf.Ui.Interop;
 
 namespace Wpf.Ui.Appearance;
 
 /// <summary>
-/// Allows to manage available color themes from the library.
+/// Allows to manage the application theme by swapping resource dictionaries containing dynamic resources with color information.
 /// </summary>
+/// <example>
+/// <code lang="csharp">
+/// ApplicationThemeManager.Apply(
+///     ApplicationTheme.Light
+/// );
+/// </code>
+/// <code lang="csharp">
+/// if (ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark)
+/// {
+///     ApplicationThemeManager.Apply(
+///         ApplicationTheme.Light
+///     );
+/// }
+/// </code>
+/// <code>
+/// ApplicationThemeManager.Changed += (theme, accent) =>
+/// {
+///     Debug.WriteLine($"Application theme changed to {theme.ToString()}");
+/// };
+/// </code>
+/// </example>
 public static class ApplicationThemeManager
 {
+    private static ApplicationTheme _cachedApplicationTheme = ApplicationTheme.Unknown;
+
+    internal const string LibraryNamespace = "wpf.ui;";
+
+    internal const string ThemesDictionaryPath = "pack://application:,,,/Wpf.Ui;component/Resources/Theme/";
+
     /// <summary>
     /// Event triggered when the application's theme is changed.
     /// </summary>
@@ -26,8 +49,7 @@ public static class ApplicationThemeManager
     /// Gets a value that indicates whether the application is currently using the high contrast theme.
     /// </summary>
     /// <returns><see langword="true"/> if application uses high contrast theme.</returns>
-    public static bool IsHighContrast() =>
-        AppearanceData.ApplicationTheme == ApplicationTheme.HighContrast;
+    public static bool IsHighContrast() => _cachedApplicationTheme == ApplicationTheme.HighContrast;
 
     /// <summary>
     /// Gets a value that indicates whether the Windows is currently using the high contrast theme.
@@ -63,7 +85,7 @@ public static class ApplicationThemeManager
             return;
         }
 
-        var appDictionaries = new ResourceDictionaryManager(AppearanceData.LibraryNamespace);
+        var appDictionaries = new ResourceDictionaryManager(LibraryNamespace);
 
         var themeDictionaryName = "Light";
 
@@ -72,14 +94,30 @@ public static class ApplicationThemeManager
             case ApplicationTheme.Dark:
                 themeDictionaryName = "Dark";
                 break;
+            case ApplicationTheme.HighContrast:
+                switch (ApplicationThemeManager.GetSystemTheme())
+                {
+                    case SystemTheme.HC1:
+                        themeDictionaryName = "HC1";
+                        break;
+                    case SystemTheme.HC2:
+                        themeDictionaryName = "HC2";
+                        break;
+                    case SystemTheme.HCBlack:
+                        themeDictionaryName = "HCBlack";
+                        break;
+                    case SystemTheme.HCWhite:
+                    default:
+                        themeDictionaryName = "HCWhite";
+                        break;
+                }
+
+                break;
         }
 
         var isUpdated = appDictionaries.UpdateDictionary(
             "theme",
-            new Uri(
-                AppearanceData.LibraryThemeDictionariesUri + themeDictionaryName + ".xaml",
-                UriKind.Absolute
-            )
+            new Uri(ThemesDictionaryPath + themeDictionaryName + ".xaml", UriKind.Absolute)
         );
 
         //var wpfUiDictionary = appDictionaries.GetDictionary("wpf.ui");
@@ -105,17 +143,97 @@ public static class ApplicationThemeManager
 #if DEBUG
         System.Diagnostics.Debug.WriteLine(
             $"INFO | {typeof(ApplicationThemeManager)} tries to update theme to {themeDictionaryName} ({applicationTheme}): {isUpdated}",
-            "Wpf.Ui.Theme"
+            nameof(ApplicationThemeManager)
         );
 #endif
         if (!isUpdated)
+        {
             return;
+        }
 
-        AppearanceData.ApplicationTheme = applicationTheme;
+        SystemThemeManager.UpdateSystemThemeCache();
+
+        _cachedApplicationTheme = applicationTheme;
 
         Changed?.Invoke(applicationTheme, ApplicationAccentColorManager.SystemAccent);
 
-        UpdateBackground(applicationTheme, backgroundEffect, forceBackground);
+        if (UiApplication.Current.MainWindow is Window mainWindow)
+        {
+            WindowBackgroundManager.UpdateBackground(
+                mainWindow,
+                applicationTheme,
+                backgroundEffect,
+                forceBackground
+            );
+        }
+    }
+
+    /// <summary>
+    /// Applies Resources in the <paramref name="frameworkElement"/>.
+    /// </summary>
+    public static void Apply(FrameworkElement frameworkElement)
+    {
+        if (frameworkElement is null)
+            return;
+
+        var resourcesRemove = frameworkElement
+            .Resources.MergedDictionaries.Where(e => e.Source is not null)
+            .Where(e => e.Source.ToString().ToLower().Contains(LibraryNamespace))
+            .ToArray();
+
+        foreach (var resource in UiApplication.Current.Resources.MergedDictionaries)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"INFO | {typeof(ApplicationThemeManager)} Add {resource.Source}",
+                "Wpf.Ui.Appearance"
+            );
+            frameworkElement.Resources.MergedDictionaries.Add(resource);
+        }
+
+        foreach (var resource in resourcesRemove)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"INFO | {typeof(ApplicationThemeManager)} Remove {resource.Source}",
+                "Wpf.Ui.Appearance"
+            );
+            frameworkElement.Resources.MergedDictionaries.Remove(resource);
+        }
+
+        foreach (System.Collections.DictionaryEntry resource in UiApplication.Current.Resources)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"INFO | {typeof(ApplicationThemeManager)} Copy Resource {resource.Key} - {resource.Value}",
+                "Wpf.Ui.Appearance"
+            );
+            frameworkElement.Resources[resource.Key] = resource.Value;
+        }
+    }
+
+    public static void ApplySystemTheme()
+    {
+        ApplySystemTheme(true);
+    }
+
+    public static void ApplySystemTheme(bool updateAccent)
+    {
+        SystemThemeManager.UpdateSystemThemeCache();
+
+        SystemTheme systemTheme = GetSystemTheme();
+
+        ApplicationTheme themeToSet = ApplicationTheme.Light;
+
+        if (systemTheme is SystemTheme.Dark or SystemTheme.CapturedMotion or SystemTheme.Glow)
+        {
+            themeToSet = ApplicationTheme.Dark;
+        }
+        else if (
+            systemTheme is SystemTheme.HC1 or SystemTheme.HC2 or SystemTheme.HCBlack or SystemTheme.HCWhite
+        )
+        {
+            themeToSet = ApplicationTheme.HighContrast;
+        }
+
+        Apply(themeToSet);
     }
 
     /// <summary>
@@ -124,10 +242,12 @@ public static class ApplicationThemeManager
     /// <returns><see cref="ApplicationTheme.Unknown"/> if something goes wrong.</returns>
     public static ApplicationTheme GetAppTheme()
     {
-        if (AppearanceData.ApplicationTheme == ApplicationTheme.Unknown)
+        if (_cachedApplicationTheme == ApplicationTheme.Unknown)
+        {
             FetchApplicationTheme();
+        }
 
-        return AppearanceData.ApplicationTheme;
+        return _cachedApplicationTheme;
     }
 
     /// <summary>
@@ -136,12 +256,7 @@ public static class ApplicationThemeManager
     /// <returns><see cref="SystemTheme.Unknown"/> if something goes wrong.</returns>
     public static SystemTheme GetSystemTheme()
     {
-        if (AppearanceData.SystemTheme == SystemTheme.Unknown)
-        {
-            FetchSystemTheme();
-        }
-
-        return AppearanceData.SystemTheme;
+        return SystemThemeManager.GetCachedSystemTheme();
     }
 
     /// <summary>
@@ -159,9 +274,7 @@ public static class ApplicationThemeManager
                 => sysTheme is SystemTheme.Dark or SystemTheme.CapturedMotion or SystemTheme.Glow,
             ApplicationTheme.Light
                 => sysTheme is SystemTheme.Light or SystemTheme.Flow or SystemTheme.Sunrise,
-            _
-                => appApplicationTheme == ApplicationTheme.HighContrast
-                    && SystemThemeManager.HighContrast
+            _ => appApplicationTheme == ApplicationTheme.HighContrast && SystemThemeManager.HighContrast
         };
     }
 
@@ -198,51 +311,11 @@ public static class ApplicationThemeManager
     }
 
     /// <summary>
-    /// Tries to apply dark theme to <see cref="Window"/>.
-    /// </summary>
-    public static bool ApplyDarkThemeToWindow(Window window)
-    {
-        if (window == null)
-        {
-            return false;
-        }
-
-        if (window.IsLoaded)
-        {
-            return UnsafeNativeMethods.ApplyWindowDarkMode(window);
-        }
-
-        window.Loaded += (sender, _) => UnsafeNativeMethods.ApplyWindowDarkMode(sender as Window);
-
-        return true;
-    }
-
-    /// <summary>
-    /// Tries to remove dark theme from <see cref="Window"/>.
-    /// </summary>
-    public static bool RemoveDarkThemeFromWindow(Window window)
-    {
-        if (window == null)
-        {
-            return false;
-        }
-
-        if (window.IsLoaded)
-        {
-            return UnsafeNativeMethods.RemoveWindowDarkMode(window);
-        }
-
-        window.Loaded += (sender, _) => UnsafeNativeMethods.RemoveWindowDarkMode(sender as Window);
-
-        return true;
-    }
-
-    /// <summary>
     /// Tries to guess the currently set application theme.
     /// </summary>
     private static void FetchApplicationTheme()
     {
-        ResourceDictionaryManager appDictionaries = new(AppearanceData.LibraryNamespace);
+        ResourceDictionaryManager appDictionaries = new(LibraryNamespace);
         ResourceDictionary? themeDictionary = appDictionaries.GetDictionary("theme");
 
         if (themeDictionary == null)
@@ -254,94 +327,17 @@ public static class ApplicationThemeManager
 
         if (themeUri.Contains("light"))
         {
-            AppearanceData.ApplicationTheme = ApplicationTheme.Light;
+            _cachedApplicationTheme = ApplicationTheme.Light;
         }
 
         if (themeUri.Contains("dark"))
         {
-            AppearanceData.ApplicationTheme = ApplicationTheme.Dark;
+            _cachedApplicationTheme = ApplicationTheme.Dark;
         }
 
         if (themeUri.Contains("highcontrast"))
         {
-            AppearanceData.ApplicationTheme = ApplicationTheme.HighContrast;
+            _cachedApplicationTheme = ApplicationTheme.HighContrast;
         }
-    }
-
-    /// <summary>
-    /// Tries to guess the currently set system theme.
-    /// </summary>
-    private static void FetchSystemTheme()
-    {
-        AppearanceData.SystemTheme = SystemThemeManager.GetCurrentSystemTheme();
-    }
-
-    /// <summary>
-    /// Forces change to application background. Required if custom background effect was previously applied.
-    /// </summary>
-    private static void UpdateBackground(
-        ApplicationTheme applicationTheme,
-        WindowBackdropType backgroundEffect = WindowBackdropType.None,
-        bool forceBackground = false
-    )
-    {
-        List<IntPtr> handles = AppearanceData.ModifiedBackgroundHandles;
-
-        foreach (var singleHandle in handles)
-        {
-            WindowBackdrop.ApplyBackdrop(singleHandle, backgroundEffect);
-        }
-
-        // TODO: All windows
-        if (!AppearanceData.HasHandle(Application.Current.MainWindow))
-        {
-            WindowBackdrop.ApplyBackdrop(Application.Current.MainWindow, backgroundEffect);
-            AppearanceData.AddHandle(Application.Current.MainWindow);
-        }
-
-        // Do we really neeed this?
-        //if (!Win32.Utilities.IsOSWindows11OrNewer)
-        //{
-        //    var mainWindow = Application.Current.MainWindow;
-
-        //    if (mainWindow == null)
-        //        return;
-
-        //    var backgroundColor = Application.Current.Resources["ApplicationBackgroundColor"];
-        //    if (backgroundColor is Color color)
-        //        mainWindow.Background = new SolidColorBrush(color);
-        //}
-
-
-        //        var mainWindow = Application.Current.MainWindow;
-
-        //        if (mainWindow == null)
-        //            return;
-
-        //        // TODO: Do not refresh window presenter background if already applied
-        //        var backgroundColor = Application.Current.Resources["ApplicationBackgroundColor"];
-        //        if (backgroundColor is Color color)
-        //            mainWindow.Background = new SolidColorBrush(color);
-
-        //#if DEBUG
-        //        System.Diagnostics.Debug.WriteLine($"INFO | Current background color: {backgroundColor}", "Wpf.Ui.Theme");
-        //#endif
-
-        //        var windowHandle = new WindowInteropHelper(mainWindow).Handle;
-
-        //        if (windowHandle == IntPtr.Zero)
-        //            return;
-
-        //        Background.Remove(windowHandle);
-
-        //        //if (!IsAppMatchesSystem() || backgroundEffect == BackgroundType.Unknown)
-        //        //    return;
-
-        //        if (backgroundEffect == BackgroundType.Unknown)
-        //            return;
-
-        //        // TODO: Improve
-        //        if (Background.Apply(windowHandle, backgroundEffect, forceBackground))
-        //            mainWindow.Background = Brushes.Transparent;
     }
 }

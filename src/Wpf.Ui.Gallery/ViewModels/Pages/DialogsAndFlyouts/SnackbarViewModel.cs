@@ -1,4 +1,4 @@
-﻿// This Source Code Form is subject to the terms of the MIT License.
+// This Source Code Form is subject to the terms of the MIT License.
 // If a copy of the MIT was not distributed with this file, You can obtain one at https://opensource.org/licenses/MIT.
 // Copyright (C) Leszek Pomianowski and WPF UI Contributors.
 // All Rights Reserved.
@@ -7,14 +7,8 @@ using Wpf.Ui.Controls;
 
 namespace Wpf.Ui.Gallery.ViewModels.Pages.DialogsAndFlyouts;
 
-public partial class SnackbarViewModel : ObservableObject
+public partial class SnackbarViewModel(ISnackbarService snackbarService) : ObservableObject
 {
-    public SnackbarViewModel(ISnackbarService snackbarService)
-    {
-        _snackbarService = snackbarService;
-    }
-
-    private readonly ISnackbarService _snackbarService;
     private ControlAppearance _snackbarAppearance = ControlAppearance.Secondary;
 
     [ObservableProperty]
@@ -35,7 +29,7 @@ public partial class SnackbarViewModel : ObservableObject
     [RelayCommand]
     private void OnOpenSnackbar(object sender)
     {
-        _snackbarService.Show(
+        snackbarService.Show(
             "Don't Blame Yourself.",
             "No Witcher's Ever Died In His Bed.",
             _snackbarAppearance,

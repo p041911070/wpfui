@@ -37,8 +37,7 @@ public partial class MainWindow : INavigationWindow
 
     public bool Navigate(Type pageType) => RootNavigation.Navigate(pageType);
 
-    public void SetPageService(IPageService pageService) =>
-        RootNavigation.SetPageService(pageService);
+    public void SetPageService(IPageService pageService) => RootNavigation.SetPageService(pageService);
 
     public void ShowWindow() => Show();
 

@@ -116,10 +116,7 @@ internal static class TrayManager
 
         ReloadHicon(notifyIcon);
 
-        return Interop.Shell32.Shell_NotifyIcon(
-            Interop.Shell32.NIM.MODIFY,
-            notifyIcon.ShellIconData
-        );
+        return Interop.Shell32.Shell_NotifyIcon(Interop.Shell32.NIM.MODIFY, notifyIcon.ShellIconData);
     }
 
     /// <summary>

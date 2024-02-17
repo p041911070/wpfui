@@ -51,9 +51,7 @@ public partial class SettingsViewModel : ObservableObject, INavigationAware
                 if (CurrentApplicationTheme == Wpf.Ui.Appearance.ApplicationTheme.Light)
                     break;
 
-                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(
-                    Wpf.Ui.Appearance.ApplicationTheme.Light
-                );
+                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
                 CurrentApplicationTheme = Wpf.Ui.Appearance.ApplicationTheme.Light;
 
                 break;
@@ -62,9 +60,7 @@ public partial class SettingsViewModel : ObservableObject, INavigationAware
                 if (CurrentApplicationTheme == Wpf.Ui.Appearance.ApplicationTheme.Dark)
                     break;
 
-                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(
-                    Wpf.Ui.Appearance.ApplicationTheme.Dark
-                );
+                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
                 CurrentApplicationTheme = Wpf.Ui.Appearance.ApplicationTheme.Dark;
 
                 break;
